@@ -17,16 +17,16 @@
 
 
 import h5py
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import tensorflow as tf
-import seaborn as sns
+#import seaborn as sns
 import numpy as np
 import time
 import os
 from datetime import timedelta
 
 #get_ipython().magic(u'matplotlib inline')
-plt.rcParams['figure.figsize'] = (16.0, 4.0)
+#plt.rcParams['figure.figsize'] = (16.0, 4.0)
 
 print("Tensorflow version: " + tf.__version__)
 
@@ -46,6 +46,7 @@ X_val = h5f['valid_dataset'][:]
 y_val = h5f['valid_labels'][:]
 X_test = h5f['test_dataset'][:]
 y_test = h5f['test_labels'][:]
+
 
 print('Training set', X_train.shape, y_train.shape)
 print('Validation set', X_val.shape, y_val.shape)
@@ -89,7 +90,7 @@ def plot_images(images, nrows, ncols, cls_true, cls_pred=None):
         
         
 # Plot some sample images
-plot_images(X_train, 4, 6, y_train)
+#plot_images(X_train, 4, 6, y_train)
 
 
 # ### Helper functions for creating new variables
@@ -219,7 +220,7 @@ def softmax_function(input,         # Previous layer
 
 # We processed image size to be 64
 img_size_h = 28
-img_size_w = 90
+img_size_w = 84
 
 # Number of channels: 1 because greyscale
 num_channels = 1
@@ -240,18 +241,19 @@ num_labels = 11
 
 # Convolutional Layer 1
 filter_size1 = 3          # Convolution filters are 5 x 5 pixels.
-num_filters1 = 16         # There are 16 of these filters.
+num_filters1 = 32         # There are 16 of these filters.
 
 # Convolutional Layer 2
 filter_size2 = 3          # Convolution filters are 5 x 5 pixels.
-num_filters2 = 32         # There are 36 of these filters.
+num_filters2 = 64        # There are 36 of these filters.
 
 # Convolutional Layer 3
 filter_size3 = 3          # Convolution filters are 5 x 5 pixels.
-num_filters3 = 64         # There are 48 of these filters.
+num_filters3 = 128         # There are 48 of these filters.
 
 # Fully-connected layer
-fc_size = 64             # Number of neurons in fully-connected layer.
+fc_size = 1024             # Number of neurons in fully-connected layer.
+fc_size = 1024             # Number of neurons in fully-connected layer.
 
 
 # ## Tensorflow Model
@@ -280,7 +282,7 @@ x = tf.placeholder(tf.float32, shape=(None, img_size_h, img_size_w, num_channels
 
 # Labels placeholder
 y_true = tf.placeholder(tf.int64, shape=[None, num_digits], name='y_true')
-
+y_true_length = tf.placeholder(tf.int64, shape=[None, 1], name='y_true_length')
 
 # To reduce overfitting, we will apply dropout before the readout layer
 
@@ -368,7 +370,7 @@ fc_1
 
 # In[21]:
 
-
+logits_0, w_s0 = softmax_function(fc_1, fc_size, num_digits + 2, 'w_s0')
 logits_1, w_s1 = softmax_function(fc_1, fc_size, num_labels, 'w_s1')
 logits_2, w_s2 = softmax_function(fc_1, fc_size, num_labels, 'w_s2')
 logits_3, w_s3 = softmax_function(fc_1, fc_size, num_labels, 'w_s3')
@@ -385,12 +387,12 @@ y_pred_cls = tf.transpose(tf.argmax(y_pred, dimension=2))
 
 # In[22]:
 
-
+loss0 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits_0, labels=y_true_length[:,0]))
 loss1 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits_1, labels=y_true[:, 0]))
 loss2 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits_2, labels=y_true[:, 1]))
 loss3 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits_3, labels=y_true[:, 2]))
 
-loss = loss1 + loss2 + loss3
+loss = loss0 + loss1 + loss2 + loss3
 
 
 # ### Optimization Method
@@ -500,15 +502,24 @@ def optimize(num_iterations):
         offset = (step * batch_size) % (y_train.shape[0] - batch_size)
         batch_data = X_train[offset:(offset + batch_size), :, :, :]
         batch_labels = y_train[offset:(offset + batch_size), :]
-        
-        feed_dict_train = {x: batch_data, y_true: batch_labels, keep_prob: dropout}
+
+        batch_label_length = np.ndarray([len(batch_labels), 1], dtype=np.int32)
+        for i in range(len(batch_labels)):
+            num = 0
+            for digit in batch_labels[i]:
+                num += (digit != 10)
+            batch_label_length[i:1] = num
+
+        feed_dict_train = {x: batch_data, y_true: batch_labels, y_true_length: batch_label_length, keep_prob: dropout}
 
         # Run the optimizer using this batch of training data.
-        session.run(optimizer, feed_dict=feed_dict_train)
+        loss = session.run(optimizer, feed_dict=feed_dict_train)
 
         # Print status every x iterations.
         if step % display_step == 0:
-            
+
+            print("Minibatch loss at step %d: %.4f" % (step, loss))
+
             # Calculate the accuracy on the training-set.
             batch_predictions = session.run(y_pred_cls, feed_dict=feed_dict_train)
             print("Minibatch accuracy at step %d: %.4f" % (step, accuracy(batch_predictions, batch_labels)))
@@ -573,7 +584,7 @@ cls_true = y_test[correct]
 cls_pred = test_pred[correct]
 
 # Plot the mis-classified examples
-plot_images(images, 6, 6, cls_true, cls_pred);
+#plot_images(images, 6, 6, cls_true, cls_pred)
 
 
 # #### Incorrectly classified images
@@ -592,7 +603,7 @@ cls_true = y_test[incorrect]
 cls_pred = test_pred[incorrect]
 
 # Plot the mis-classified examples
-plot_images(images, 6, 6, cls_true, cls_pred);
+#plot_images(images, 6, 6, cls_true, cls_pred);
 
 
 # In[36]:
