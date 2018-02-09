@@ -56,13 +56,22 @@ def get_data_list(file_list):
     print "load data files, length is {}".format(len(data_list))
     return data_list
 
-train_file_list_path = "./data/test/train.txt"
-test_file_list_path = "./data/test/train.txt"
-val_file_list_path = "./data/test/train.txt"
+train_file_list_path = ["./data/test/train.txt"]
+test_file_list_path = ["./data/test/train.txt"]
+val_file_list_path = ["./data/test/train.txt"]
 
-train_data_list = get_data_list(train_file_list_path)
-test_data_list = get_data_list(test_file_list_path)
-val_data_list = get_data_list(val_file_list_path)
+train_data_list = []
+for file in train_file_list_path:
+    train_data_list += get_data_list(file)
+
+val_data_list = []
+for file in val_file_list_path:
+    val_data_list += get_data_list(file)
+
+test_data_list = []
+for file in test_file_list_path:
+    test_data_list += get_data_list(file)
+
 np.random.shuffle(train_data_list)
 np.random.shuffle(test_data_list)
 np.random.shuffle(val_data_list)
