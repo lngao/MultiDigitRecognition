@@ -6,8 +6,8 @@ import time
 import os
 
 # We processed image size to be 64
-IMAGE_SIZE_h = 28
-IMAGE_SIZE_w = 84
+IMAGE_SIZE_h = 64
+IMAGE_SIZE_w = 64
 
 # Number of channels: 1 because greyscale
 NUM_CHANNELS = 1
@@ -66,12 +66,11 @@ def process_peiyou(img):
     if mean_value > 128:
         img = 255 - img
 
+    img_copy = img.copy()
     #kernel = np.ones((3, 3), np.uint8)
     #img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel, iterations=1)
     #img = cv2.dilate(img, kernel, iterations=2)
     #save_debug_img(_DEBUG_, "binary_morpho.png", img)
-
-    img_copy = img.copy()
     save_debug_img(_DEBUG_, "binary.png", img)
     _, contours, hierarchy = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     x, y, w, h = cv2.boundingRect(contours[0])
@@ -80,10 +79,15 @@ def process_peiyou(img):
     bouding_img = cv2.rectangle(img, (x,y), (x+w,y+h),[255, 255, 255])
     save_debug_img(_DEBUG_, "bouding.png", bouding_img)
     roi = img_copy[y:y+h, x:x+w]
-    border = int(float(roi.shape[0])*0.1)
+    border = int(float(h)*0.1)
     roi = cv2.copyMakeBorder(roi, border, border, 0, 0, cv2.BORDER_CONSTANT, None, [0, 0, 0])
+    border = int(float(w) * 0.1)
+    roi = cv2.copyMakeBorder(roi, 0, 0, border, border,cv2.BORDER_CONSTANT, None, [0, 0, 0])
     roi = 255 - roi
     save_debug_img(_DEBUG_, "roi.png", roi)
+
+    roi = cv2.resize(roi, (IMAGE_SIZE_w, IMAGE_SIZE_h), None, 0, 0, cv2.INTER_CUBIC)
+    save_debug_img(_DEBUG_, "resized.png", roi)
     return roi
 
 def get_dst_image_1(input_image, dst_size_h, dst_size_w):
@@ -210,15 +214,15 @@ def model(input):
 
     # Convolutional Layer 1
     filter_size1 = 3  # Convolution filters are 5 x 5 pixels.
-    num_filters1 = 32  # There are 16 of these filters.
+    num_filters1 = 16  # There are 16 of these filters.
 
     # Convolutional Layer 2
     filter_size2 = 3  # Convolution filters are 5 x 5 pixels.
-    num_filters2 = 64  # There are 36 of these filters.
+    num_filters2 = 32  # There are 36 of these filters.
 
     # Convolutional Layer 3
     filter_size3 = 3  # Convolution filters are 5 x 5 pixels.
-    num_filters3 = 128  # There are 48 of these filters.
+    num_filters3 = 64  # There are 48 of these filters.
 
     # Fully-connected layer
     fc_size = 1024  # Number of neurons in fully-connected layer.
@@ -296,13 +300,9 @@ class MulDigitRecog:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         if not (img.shape[0] == IMAGE_SIZE_h and img.shape[1] == IMAGE_SIZE_w):
-            #img = get_square_image(img, int(28 * 0.45))
-            #img = get_dst_image(img, IMAGE_SIZE)
             img = process_peiyou(img)
-            img = get_dst_image_1(img, IMAGE_SIZE_h, IMAGE_SIZE_w)
-            save_debug_img(_DEBUG_, "resized.png",img)
         image = np.zeros([IMAGE_SIZE_h, IMAGE_SIZE_w], dtype=np.float32)
-        image[:] = (255.0 - img[:])
+        image[:] = img[:]
         image = np.reshape(image, [1, IMAGE_SIZE_h, IMAGE_SIZE_w, NUM_CHANNELS])
         return image
 
@@ -369,14 +369,14 @@ def recog_img_files(instance, img_path, save_path, f, label=None, ext="*.png"):
 
 if __name__ == '__main__':
 
-    ckpt_path = "./checkpoints/mnist_net2"
+    ckpt_path = "./checkpoints/mnist_net2_1_980000"
 
     instance = MulDigitRecog()
     instance.init_model(ckpt_name=ckpt_path)
 
     save_path = "/home/gaolining/host_share/digit/result/"
-    img_file_path = "/home/gaolining/host_share/digit/samples_m/3-big/"
-    #img_file_path = "/home/gaolining/host_share/digit/test_data/3/"
+    img_file_path = "/home/gaolining/host_share/digit/samples_m/2-big/"
+    img_file_path = "/home/gaolining/host_share/digit/test_data/3/"
     #img_file_path = "/home/extend/code/models/official/mnist/"
 
     f = open("log.txt", "w")

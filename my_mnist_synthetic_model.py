@@ -1,20 +1,14 @@
-
 # coding: utf-8
 
 # # Digit Sequences
 # 
-# ### Recognizing digit sequences from a simple synthetic dataset using TensorFlow 
+# ### Recognizing digit sequences from a simple synthetic dataset using TensorFlow
+# The following notebook details my implementation of a Convolutional Neural Network to recognize sequences of digits
+# in a synthetic dataset created from the MNIST dataset. The purpose of the notebook is to understand how the
+# architecture of a network has to be changed to accomodate classification of multiple objects.
 # 
-# ---
-# 
-# The following notebook details my implementation of a Convolutional Neural Network to recognize sequences of digits in a synthetic dataset created from the MNIST dataset. The purpose of the notebook is to understand how the architecture of a network has to be changed to accomodate classification of multiple objects.
-# 
-# I have broken the notebook into two parts as TensorFlow programs are usually structured into a **construction phase**, that assembles a graph, and an **execution phase** that uses a session to execute ops in the graph.
-# 
-# Let's start by importing some libraries and load our prepared dataset.
-
-# In[1]:
-
+# I have broken the notebook into two parts as TensorFlow programs are usually structured into a **construction
+# phase**, that assembles a graph, and an **execution phase** that uses a session to execute ops in the
 
 import h5py
 #import matplotlib.pyplot as plt
@@ -24,6 +18,7 @@ import numpy as np
 import time
 import os
 from datetime import timedelta
+import cv2
 
 #get_ipython().magic(u'matplotlib inline')
 #plt.rcParams['figure.figsize'] = (16.0, 4.0)
@@ -31,13 +26,56 @@ from datetime import timedelta
 print("Tensorflow version: " + tf.__version__)
 
 
+# ## Data dimensions
+
+# The data dimensions are used in several places in the code below. In computer programming it is generally best
+#  to use variables and constants rather than having to hard-code specific numbers every time that number is used.
+
+# We processed image size to be 64
+img_size_h = 28
+img_size_w = 84
+
+# Number of channels: 1 because greyscale
+num_channels = 1
+
+# Number of digits
+num_digits = 3
+
+# Number of output labels
+num_labels = 11
+
+
+def get_data_list(file_list):
+    """
+    get the file_list data
+    :param file_list:
+    :return:
+    """
+    with open(file_list) as file:
+        data_list = [ line.split() for line in file]
+    print "load data files, length is {}".format(len(data_list))
+    return data_list
+
+file_list_path = "./data/train.txt"
+data_list = get_data_list(file_list_path)
+np.random.shuffle(data_list)
+
+def get_batch_data(data_list, step, batch_size):
+
+    batch_data = np.zeros(shape=[batch_size, img_size_h, img_size_w, 1], dtype=np.uint8)
+    batch_labels = np.zeros(shape=[batch_size, 3], dtype=np.uint32)
+    for i in range(batch_size):
+        img_path, label = data_list[step + i]
+        img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+        img = cv2.resize(img, (img_size_w, img_size_h), None, 0, 0, cv2.INTER_CUBIC)
+        batch_data[i,:,:,0] = img
+        batch_labels[i, :] = 10
+        for j,item in enumerate(label):
+           batch_labels[i, j] = int(item)
+    return batch_data, batch_labels
+
 # ## Loading the data
-# 
-# Let's load the greyscale images created in our previous notebook
-
-# In[2]:
-
-
+# Let's load the greyscale images created in our previous note
 h5f = h5py.File('data/MNIST_synthetic_3.h5','r')
 
 X_train = h5f['train_dataset'][:]
@@ -57,15 +95,14 @@ h5f.close()
 
 # ## Helper functions
 # 
-# A helper function is a function that performs part of the computation of another function. Helper functions are used to make your programs easier to read by giving descriptive names to computations. They also let you reuse computations, just as with functions in general.
+# A helper function is a function that performs part of the computation of another function. Helper functions
+# are used to make your programs easier to read by giving descriptive names to computations. They also let
+# you reuse computations, just as with functions in general.
 # 
 # ### Helper function for plotting images
 # 
-# Here is a simple helper function that will help us plot ``nrows`` * ``ncols`` images and their true and predicted labels.
-
-# In[5]:
-
-
+# Here is a simple helper function that will help us plot ``nrows`` * ``ncols`` images and their true and
+# predicted labels.
 def plot_images(images, nrows, ncols, cls_true, cls_pred=None):
     
     # Initialize figure
@@ -95,10 +132,9 @@ def plot_images(images, nrows, ncols, cls_true, cls_pred=None):
 
 # ### Helper functions for creating new variables
 # 
-# Functions for creating new [``TensorFlow Variables``](https://www.tensorflow.org/how_tos/variables/) in the given shape and initializing them with random values. Note that the initialization is not actually done at this point, it is merely being defined in the TensorFlow graph.
-
-# In[6]:
-
+# Functions for creating new [``TensorFlow Variables``](https://www.tensorflow.org/how_tos/variables/)
+# in the given shape and initializing them with random values. Note that the initialization is not actually
+# done at this point, it is merely being defined in the TensorFlow graph.
 
 def conv_weight_variable(name, shape):
     return tf.get_variable(name, shape=shape,initializer=tf.contrib.layers.xavier_initializer_conv2d())
@@ -113,10 +149,6 @@ def bias_variable(shape):
 # ### Helper function for creating a Convolutional Layer
 # 
 # This function creates a new convolutional layer in the computational graph for TensorFlow.
-
-# In[7]:
-
-
 def conv_layer(input,             # The previous layer.
                 n_channels,       # Num. channels in prev. layer.
                 f_size,           # Width and height of each filter.
@@ -143,10 +175,9 @@ def conv_layer(input,             # The previous layer.
 
 # ### Helper function for flattening a layer
 # 
-# A convolutional layer produces an output tensor with 4 dimensions. We will add fully-connected layers after the convolution layers, so we need to reduce the 4-dim tensor to 2-dim which can be used as input to the fully-connected layer.
-
-# In[8]:
-
+# A convolutional layer produces an output tensor with 4 dimensions. We will add fully-connected layers
+# after the convolution layers, so we need to reduce the 4-dim tensor to 2-dim which can be used as
+#  input to the fully-connected layer.
 
 def flatten_layer(layer):
     
@@ -211,34 +242,10 @@ def softmax_function(input,         # Previous layer
     return logits, weights
 
 
-# ## Data dimensions
-
-# The data dimensions are used in several places in the code below. In computer programming it is generally best to use variables and constants rather than having to hard-code specific numbers every time that number is used.
-
-# In[11]:
-
-
-# We processed image size to be 64
-img_size_h = 28
-img_size_w = 84
-
-# Number of channels: 1 because greyscale
-num_channels = 1
-
-# Number of digits
-num_digits = 3
-
-# Number of output labels
-num_labels = 11
-
-
 # ## Network configuration
-# 
-# The configuration of the Convolutional Neural Network is defined here for convenience, so you can easily find and change these numbers and re-run the Notebook.
-
-# In[12]:
-
-
+#
+# The configuration of the Convolutional Neural Network is defined here for convenience, so you can easily
+# find and change these numbers and re-run the Notebook.
 # Convolutional Layer 1
 filter_size1 = 3          # Convolution filters are 5 x 5 pixels.
 num_filters1 = 32         # There are 16 of these filters.
@@ -257,25 +264,29 @@ fc_size = 1024             # Number of neurons in fully-connected layer.
 
 
 # ## Tensorflow Model
-# 
-# Let's build our tensorflow model step-by-step. The entire purpose of TensorFlow is to have a so-called computational graph that can be executed much more efficiently than if the same calculations were to be performed directly in Python.
-# 
+#
+# Let's build our tensorflow model step-by-step. The entire purpose of TensorFlow is to have
+# a so-called computational graph that can be executed much more efficiently than if the same
+# calculations were to be performed directly in Python.
+#
 # A TensorFlow graph consists of the following parts which will be detailed below:
-# 
+#
 # * Placeholder variables used to change the input to the graph.
 # * Model variables that are going to be optimized
-# * The model which is essentially just a mathematical function that calculates some output given the input in the placeholder variables and the model variables.
+# * The model which is essentially just a mathematical function that calculates some output given
+# the input in the placeholder variables and the model variables.
 # * A cost measure that can be used to guide the optimization of the variables.
 # * An optimization method which updates the variables of the model.
-# 
+#
 # ### Placeholder Variables
-# 
+#
 # Placeholder variables serve as the input to the graph that we may change each time we execute the graph
-# 
-# First we define the placeholder variable for the input images. This allows us to change the images that are input to the TensorFlow graph. This is a so-called tensor, which just means that it is a multi-dimensional vector or matrix. The data-type is set to float32 and the shape is set to [None, img_size_flat], where None means that the tensor may hold an arbitrary number of images with each image being a vector of length img_size_flat.
-
-# In[13]:
-
+#
+# First we define the placeholder variable for the input images. This allows us to change the images
+# that are input to the TensorFlow graph. This is a so-called tensor, which just means that it is a
+# multi-dimensional vector or matrix. The data-type is set to float32 and the shape is set to
+#  [None, img_size_flat], where None means that the tensor may hold an arbitrary number of images
+# with each image being a vector of length img_size_flat.
 
 # Images placeholder
 x = tf.placeholder(tf.float32, shape=(None, img_size_h, img_size_w, num_channels), name='x')
@@ -285,91 +296,49 @@ y_true = tf.placeholder(tf.int64, shape=[None, num_digits], name='y_true')
 y_true_length = tf.placeholder(tf.int64, shape=[None, 1], name='y_true_length')
 
 # To reduce overfitting, we will apply dropout before the readout layer
-
-# In[14]:
-
-
 keep_prob = tf.placeholder(tf.float32)
 
 
 # ### Convolutional Layer 1
-# 
-# Create the first convolutional layer. It takes x as input and creates num_filters1 different filters, each having width and height equal to filter_size1. Finally we wish to down-sample the image so it is half the size by using 2x2 max-pooling.
-
-# In[15]:
-
-
+# Create the first convolutional layer. It takes x as input and creates num_filters1 different filters,
+# each having width and height equal to filter_size1. Finally we wish to down-sample the image so it is
+#  half the size by using 2x2 max-poo
 conv_1, w_c1 = conv_layer(x, num_channels, filter_size1, num_filters1, 'w_c1', True)
 
-conv_1
-
-
 # ### Convolutional Layer 2
-# 
-# Create the second convolutional layer, which takes as input the output from the first convolutional layer. The number of input channels corresponds to the number of filters in the first convolutional layer.
-
-# In[16]:
-
-
+# Create the second convolutional layer, which takes as input the output from the first convolutional
+# layer. The number of input channels corresponds to the number of filters in the first convolutional
+# layer.
 conv_2, w_c2 = conv_layer(conv_1, num_filters1, filter_size2, num_filters2, 'w_c2', True)
 
-conv_2
-
-
 # ### Convolutional Layer 3
-
-# In[17]:
-
-
 conv_3, w_c3 = conv_layer(conv_2, num_filters2, filter_size3, num_filters3, 'w_c3', False)
-
-conv_3
-
-
-# ### Droput
-
-# In[18]:
-
 
 dropout = tf.nn.dropout(conv_3, keep_prob)
 
-dropout
-
-
 # ### Flatten Layer
-# 
-# The convolutional layers output 4-dim tensors. We now wish to use these as input in a fully-connected network, which requires for the tensors to be reshaped or flattened to 2-dim tensors.
-
-# In[19]:
-
-
+#
+# The convolutional layers output 4-dim tensors. We now wish to use these as input in a fully-connected
+# network, which requires for the tensors to be reshaped or flattened to 2-dim tensors.
 flatten, num_features = flatten_layer(dropout)
 
-flatten
-
-
-# Check that the tensors now have shape (?, 16384) which means there's an arbitrary number of images which have been flattened to vectors of length 16384 each. Note that 16384 = 16 x 16 x 64
-
+# Check that the tensors now have shape (?, 16384) which means there's an arbitrary number of images
+# which have been flattened to vectors of length 16384 each. Note that 16384 = 16 x 16 x 64
 # ### Fully-Connected Layer 1
-# 
-# Add a fully-connected layer to the network. The input is the flattened layer from the previous convolution. The number of neurons or nodes in the fully-connected layer is fc_size. ReLU is used so we can learn non-linear relations.
-
-# In[20]:
-
-
+# Add a fully-connected layer to the network. The input is the flattened layer from the previous
+# convolution. The number of neurons or nodes in the fully-connected layer is fc_size. ReLU is
+#  used so we can learn non-linear relations.
 fc_1 = fc_layer(flatten, num_features, fc_size, 'w_fc1', relu=True)
 
-fc_1
-
-
-# Check that the output of the fully-connected layer is a tensor with shape (?, 128) where the ? means there is an arbitrary number of images and fc_size == 128.
+# Check that the output of the fully-connected layer is a tensor with shape (?, 128) where the ? means
+# there is an arbitrary number of images and fc_size == 128.
 
 # ### Predicted Class
-# 
-# The fully-connected layer estimates how likely it is that the input image belongs to each of the 10 classes for each of the 5 digits. However, these estimates are a bit rough and difficult to interpret because the numbers may be very small or large, so we want to normalize them so that each element is limited between zero and one. This is calculated using the so-called softmax function and the result is stored in y_pred.
-
-# In[21]:
-
+# The fully-connected layer estimates how likely it is that the input image belongs to each of the 10
+# classes for each of the 5 digits. However, these estimates are a bit rough and difficult to interpret
+# because the numbers may be very small or large, so we want to normalize them so that each element is
+# limited between zero and one. This is calculated using the so-called softmax function and the result
+# is stored in y_pred.
 logits_0, w_s0 = softmax_function(fc_1, fc_size, num_digits + 2, 'w_s0')
 logits_1, w_s1 = softmax_function(fc_1, fc_size, num_labels, 'w_s1')
 logits_2, w_s2 = softmax_function(fc_1, fc_size, num_labels, 'w_s2')
@@ -382,11 +351,9 @@ y_pred_cls = tf.transpose(tf.argmax(y_pred, dimension=2))
 
 
 # ### Cost Function
-# 
-# To make the model better at classifying the input images, we must somehow change the variables for all the network layers. To do this we first need to know how well the model currently performs by comparing the predicted output of the model y_pred to the desired output y_true.
-
-# In[22]:
-
+# To make the model better at classifying the input images, we must somehow change the variables for
+# all the network layers. To do this we first need to know how well the model currently performs by
+# comparing the predicted output of the model y_pred to the desired output y_
 loss0 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits_0, labels=y_true_length[:,0]))
 loss1 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits_1, labels=y_true[:, 0]))
 loss2 = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits_2, labels=y_true[:, 1]))
@@ -397,10 +364,11 @@ loss = loss0 + loss1 + loss2 + loss3
 
 # ### Optimization Method
 # 
-# Now that we have a cost measure that must be minimized, we can then create an optimizer. In this case it is the [``AdamOptimizer``](https://www.tensorflow.org/api_docs/python/train/optimizers#AdamOptimizer) which is an advanced form of Gradient Descent. When training a model, it is often recommended to lower the learning rate as the training progresses. This function applies an exponential decay function to a provided initial learning rate.
-
-# In[23]:
-
+# Now that we have a cost measure that must be minimized, we can then create an optimizer. In this case
+# it is the [``AdamOptimizer``](https://www.tensorflow.org/api_docs/python/train/optimizers#AdamOptimizer)
+# which is an advanced form of Gradient Descent. When training a model, it is often recommended to lower
+# the learning rate as the training progresses. This function applies an exponential decay function to
+# a provided initial learning rate.
 
 # We use global_step as a counter variable
 global_step = tf.Variable(0)
@@ -416,45 +384,27 @@ optimizer = tf.train.AdagradOptimizer(learning_rate).minimize(loss, global_step=
 
 
 # ### Evaluation Metric
-# 
-# To evaluate the performance of our Convolutional Network we calculate the average accuracy across all samples
-
-# In[24]:
-
-
 def accuracy(predictions, labels):
     return (100.0 * np.sum(predictions == labels) / predictions.shape[1] / predictions.shape[0])
 
 
 # ### Create TensorFlow Session
-# 
-# Once the TensorFlow graph has been created, we have to create a TensorFlow session which is used to execute the graph.
-
-# In[25]:
-
-
-session = tf.Session()
-
-session
+# Once the TensorFlow graph has been created, we have to create a TensorFlow session which is used
+# to execute the graph.
+session = tf.Sess()
 
 
 # The variables for weights and biases must be initialized before we start optimizing them.
-
-# In[26]:
-
-
 session.run(tf.global_variables_initializer())
 
 
 # ## Optimization
-# 
-# There are many images in the training-set. It takes a long time to calculate the gradient of the model using all these images. We therefore only use a small batch of images in each iteration of the optimizer.
-
-# In[27]:
-
+# There are many images in the training-set. It takes a long time to calculate the gradient
+# of the model using all these images. We therefore only use a small batch of images
+# in each iteration of the optimizer.
 
 # Batch size
-batch_size = 1
+batch_size = 4
 
 # Number of steps between each update
 display_step = 100
@@ -464,12 +414,7 @@ dropout = 0.5
 
 
 # The easiest way to save and restore a model is to use a tf.train.Saver object
-
-# In[28]:
-
-
 saver = tf.train.Saver()
-
 save_dir = 'checkpoints/'
 
 # Create directory if it does not exist
@@ -478,15 +423,10 @@ if not os.path.exists(save_dir):
     
 save_path = os.path.join(save_dir, 'mnist_net2')
 
-#'''If you want to restore model'''
-#saver.restore(sess=session, save_path=save_path)
-#print("Model restored")
 
-
-# In each iteration, a new batch of data is selected from the training-set and then TensorFlow executes the optimizer using those training samples. The progress is printed every 100 iterations.
-
-# In[31]:
-
+# In each iteration, a new batch of data is selected from the training-set and then
+#  TensorFlow executes the optimizer using those training samples. The progress
+# is printed every 100 iterations.
 
 total_iterations = 0
 
@@ -508,17 +448,17 @@ def optimize(num_iterations):
             num = 0
             for digit in batch_labels[i]:
                 num += (digit != 10)
-            batch_label_length[i:1] = num
+            batch_label_length[i][0] = num
 
         feed_dict_train = {x: batch_data, y_true: batch_labels, y_true_length: batch_label_length, keep_prob: dropout}
 
         # Run the optimizer using this batch of training data.
-        loss = session.run(optimizer, feed_dict=feed_dict_train)
+        loss_,_ = session.run([loss,optimizer], feed_dict=feed_dict_train)
 
         # Print status every x iterations.
         if step % display_step == 0:
 
-            print("Minibatch loss at step %d: %.4f" % (step, loss))
+            print("Minibatch loss at step %d: %.4f" % (step, loss_))
 
             # Calculate the accuracy on the training-set.
             batch_predictions = session.run(y_pred_cls, feed_dict=feed_dict_train)
@@ -553,27 +493,18 @@ def optimize(num_iterations):
 optimize(num_iterations=1000)
 
 
-# I'm pretty happy with an accuracy of 96.52 and it even looks like our model have not yet converged and could be further improved
+# I'm pretty happy with an accuracy of 96.52 and it even looks like our model have
+# not yet converged and could be further improved
 
 # ### Testset performance
 # 
-# Let's plot some of the mis-classified examples in our testset and a confusion matrix showing how well our model is able to predict the different digits.
-
-# In[33]:
-
-
+# Let's plot some of the mis-classified examples in our testset and a confusion matrix
+# showing how well our model is able to predict the different digits.
 # Generate predictions for the testset
 test_pred = session.run(y_pred_cls, feed_dict={x: X_test, y_true: y_test, keep_prob: 1.0})
 
-test_pred
-
-
-# #### Correctly classified images
-# 
+# #### Correctly classified ima
 # Let's find some correctly classified examples and plot the true and predicted label values
-
-# In[34]:
-
 
 # Find the incorrectly classified examples
 correct = np.array([(a==b).all() for a, b in zip(test_pred, y_test)])
@@ -590,10 +521,6 @@ cls_pred = test_pred[correct]
 # #### Incorrectly classified images
 # 
 # Let's invert the boolean array and plot some of the incorrectly classified examples
-
-# In[35]:
-
-
 # Find the incorrectly classified examples
 incorrect = np.invert(correct)
 
@@ -604,10 +531,6 @@ cls_pred = test_pred[incorrect]
 
 # Plot the mis-classified examples
 #plot_images(images, 6, 6, cls_true, cls_pred);
-
-
-# In[36]:
-
 
 # Close session
 session.close()
