@@ -65,12 +65,12 @@ def process_peiyou(img):
     mean_value = np.mean(img)
     if mean_value > 128:
         img = 255 - img
-
+    kernel = np.ones((3, 3), np.uint8)
+    img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel, iterations=1)
+    img = cv2.dilate(img, kernel, iterations=2)
+    save_debug_img(_DEBUG_, "binary_morpho.png", img)
     img_copy = img.copy()
-    #kernel = np.ones((3, 3), np.uint8)
-    #img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel, iterations=1)
-    #img = cv2.dilate(img, kernel, iterations=2)
-    #save_debug_img(_DEBUG_, "binary_morpho.png", img)
+
     save_debug_img(_DEBUG_, "binary.png", img)
     _, contours, hierarchy = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     x, y, w, h = cv2.boundingRect(contours[0])
@@ -81,11 +81,10 @@ def process_peiyou(img):
     roi = img_copy[y:y+h, x:x+w]
     border = int(float(h)*0.1)
     roi = cv2.copyMakeBorder(roi, border, border, 0, 0, cv2.BORDER_CONSTANT, None, [0, 0, 0])
-    border = int(float(w) * 0.1)
+    border = int(float(w)*0.1)
     roi = cv2.copyMakeBorder(roi, 0, 0, border, border,cv2.BORDER_CONSTANT, None, [0, 0, 0])
     roi = 255 - roi
     save_debug_img(_DEBUG_, "roi.png", roi)
-
     roi = cv2.resize(roi, (IMAGE_SIZE_w, IMAGE_SIZE_h), None, 0, 0, cv2.INTER_CUBIC)
     save_debug_img(_DEBUG_, "resized.png", roi)
     return roi
@@ -375,8 +374,8 @@ if __name__ == '__main__':
     instance.init_model(ckpt_name=ckpt_path)
 
     save_path = "/home/gaolining/host_share/digit/result/"
-    img_file_path = "/home/gaolining/host_share/digit/samples_m/2-big/"
-    img_file_path = "/home/gaolining/host_share/digit/test_data/3/"
+    img_file_path = "/home/gaolining/host_share/digit/samples_m/3-big/"
+    #img_file_path = "/home/gaolining/host_share/digit/test_data/3/"
     #img_file_path = "/home/extend/code/models/official/mnist/"
 
     f = open("log.txt", "w")

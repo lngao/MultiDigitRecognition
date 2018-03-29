@@ -89,7 +89,7 @@ def plot_images(images, nrows, ncols, cls_true, cls_pred=None):
         
         
 # Plot some sample images
-plot_images(X_train, 4, 6, y_train);
+plot_images(X_train, 4, 6, y_train)
 
 
 # ### Helper functions for creating new variables
@@ -444,7 +444,7 @@ session
 # In[26]:
 
 
-session.run(tf.initialize_all_variables())
+session.run(tf.global_variables_initializer())
 
 
 # ## Optimization
@@ -455,10 +455,10 @@ session.run(tf.initialize_all_variables())
 
 
 # Batch size
-batch_size = 64
+batch_size = 1
 
 # Number of steps between each update
-display_step = 1000
+display_step = 100
 
 # Dropout
 dropout = 0.5
@@ -533,6 +533,7 @@ def optimize(num_iterations):
     print("Time usage: " + str(timedelta(seconds=int(round(time_dif)))))
     
     saver.save(sess=session, save_path=save_path)
+    tf.train.write_graph(session.graph_def, "./checkpoints/", "graph.pbtxt", as_text=True)
     print('Model saved in file: {}'.format(save_path))
 
 
@@ -541,7 +542,7 @@ def optimize(num_iterations):
 # In[32]:
 
 
-optimize(num_iterations=200000)
+optimize(num_iterations=1000)
 
 
 # I'm pretty happy with an accuracy of 96.52 and it even looks like our model have not yet converged and could be further improved
